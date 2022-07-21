@@ -12,25 +12,25 @@ RUN /setup.packages.sh /builder.packages.txt
 COPY builder.devtoolset/fixlinks.sh /fixlinks.sh
 COPY builder.devtoolset/rpm-patch.sh /rpm-patch.sh
 COPY builder.devtoolset/build_devtoolset.sh /build_devtoolset.sh
-RUN /build_devtoolset.sh devtoolset-7 /dt7 
+RUN /build_devtoolset.sh devtoolset-8 /dt8 
 
 # Install devtoolset-9 in /dt9 with glibc 2.17 and libstdc++ 4.8, for building
 # manylinux2014-compatible packages.
 RUN /build_devtoolset.sh devtoolset-9 /dt9 
-
 ################################################################################
-FROM nvidia/cuda:11.2.2-base-ubuntu20.04 as devel
+#FROM rocm/tensorflow-autobuilds:ubuntu20.04-rocm4.5.2 as devel
 ################################################################################
 COPY --from=builder /dt7 /dt7
 COPY --from=builder /dt9 /dt9
 
-# Install required development packages but delete unneeded CUDA bloat
-# CUDA must be cleaned up in the same command to prevent Docker layer bloating
+# Install required development packages
+# Install ROCm by version, i.e. 4.5.2
+ARG ROCM_VERS
 COPY setup.sources.sh /setup.sources.sh
 COPY setup.packages.sh /setup.packages.sh
-COPY setup.cuda.sh /setup.cuda.sh
+COPY setup.rocm.sh /setup.rocm.sh
 COPY devel.packages.txt /devel.packages.txt
-RUN /setup.sources.sh && /setup.packages.sh /devel.packages.txt && /setup.cuda.sh
+RUN /setup.sources.sh && /setup.packages.sh /devel.packages.txt && /setup.rocm.sh $ROCM_VERS 
 
 # Install various tools.
 # - bats: bash unit testing framework
@@ -56,7 +56,7 @@ RUN echo $CACHEBUSTER
 ARG PYTHON_VERSION
 COPY setup.python.sh /setup.python.sh
 COPY devel.requirements.txt /devel.requirements.txt
-RUN /setup.python.sh $PYTHON_VERSION devel.requirements.txt
+RUN /setup.python.sh $PYTHON_VERSION /devel.requirements.txt
 
 # Setup build and environment
 COPY devel.usertools /usertools
